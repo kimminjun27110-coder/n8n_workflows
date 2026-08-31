@@ -1,0 +1,104 @@
+{
+  "name": "[공통] 저녁 GitHub 자동 푸시 (Schedule)",
+  "nodes": [
+    {
+      "id": "sched-2150",
+      "name": "매일 저녁 21시 50분",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        400
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 21,
+              "triggerAtMinute": 50
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "git-push",
+      "name": "git add · commit · push",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        500,
+        400
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "executeOnce": true,
+        "command": "cd /repo || { echo \"RESULT=ERROR|/repo 마운트 안됨\"; exit 0; }\ngit config --global --add safe.directory /repo >/dev/null 2>&1\ngit config --global credential.helper \"store --file=/tmp/.gitcred\" >/dev/null 2>&1\nprintf 'https://x-access-token:%s@github.com\\n' \"$GITHUB_TOKEN\" > /tmp/.gitcred\nchmod 600 /tmp/.gitcred\ngit add -A\nif git diff --cached --quiet; then echo \"RESULT=NOCHANGE|변경사항 없음\"; exit 0; fi\nFILES=$(git diff --cached --name-only | wc -l | tr -d ' ')\nif ! git -c user.name=\"${GIT_AUTHOR_NAME:-n8n-bot}\" -c user.email=\"${GIT_AUTHOR_EMAIL:-n8n-bot@local}\" commit -m \"chore: nightly sync $(date '+%Y-%m-%d %H:%M') KST\" >/tmp/c.log 2>&1; then echo \"RESULT=ERROR|commit 실패: $(tail -1 /tmp/c.log)\"; exit 0; fi\nif git push origin \"HEAD:${GITHUB_BRANCH:-main}\" >/tmp/p.log 2>&1; then echo \"RESULT=OK|${FILES}개 파일 커밋·푸시 완료 ($(git rev-parse --short HEAD))\"; else echo \"RESULT=ERROR|push 실패: $(tail -2 /tmp/p.log | tr '\\n' ' ')\"; fi\nexit 0"
+      }
+    },
+    {
+      "id": "slack-notify",
+      "name": "슬랙 #n8n 결과 알림",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        760,
+        400
+      ],
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "#n8n"
+        },
+        "text": "=:package: *GitHub 자동 푸시* ({{ $now.format('yyyy-MM-dd HH:mm') }})\n{{ ($json.stdout || ('RESULT=ERROR|' + ($json.error || '알 수 없는 오류'))).replace('RESULT=OK|', ':white_check_mark: ').replace('RESULT=NOCHANGE|', ':information_source: ').replace('RESULT=ERROR|', ':x: ') }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false,
+          "mrkdwn": true
+        }
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "r05rfFf9p2G6Mu7r",
+          "name": "Slack Bot Token"
+        }
+      },
+      "webhookId": "f003e056-384d-4c37-8a95-1f74da855eb8"
+    }
+  ],
+  "connections": {
+    "매일 저녁 21시 50분": {
+      "main": [
+        [
+          {
+            "node": "git add · commit · push",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "git add · commit · push": {
+      "main": [
+        [
+          {
+            "node": "슬랙 #n8n 결과 알림",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "timezone": "Asia/Seoul"
+  },
+  "staticData": null,
+  "pinData": {}
+}
