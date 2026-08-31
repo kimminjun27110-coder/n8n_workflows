@@ -1,0 +1,118 @@
+{
+  "name": "[공통] 수신 메시지 Slack 알림 (Webhook)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "incoming-alert",
+        "options": {}
+      },
+      "id": "webhook-1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        272,
+        304
+      ],
+      "webhookId": "6409af0a-12c8-4b5d-be8e-85980774353b",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f1",
+              "name": "message",
+              "type": "string",
+              "value": "={{ $json.body.message }}"
+            },
+            {
+              "id": "f2",
+              "name": "receivedAt",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-msg-1",
+      "name": "메시지 생성",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        480,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "#n8n"
+        },
+        "text": "={{ $json.message }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "slack-send-1",
+      "name": "슬랙 알림 보내기",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        704,
+        304
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "alwaysOutputData": true,
+      "webhookId": "7e54a59a-a58b-4897-954c-07123e6cf19d",
+      "credentials": {
+        "slackApi": {
+          "id": "r05rfFf9p2G6Mu7r",
+          "name": "Slack Bot Token"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "메시지 생성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "메시지 생성": {
+      "main": [
+        [
+          {
+            "node": "슬랙 알림 보내기",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true,
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "pinData": {}
+}
